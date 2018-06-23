@@ -1,0 +1,107 @@
+apiVersion: apps/v1beta1
+kind: StatefulSet
+metadata:
+  name: "elasticsearch-logging"
+  labels:
+    component: elasticsearch
+    role: all
+spec:
+  serviceName: "elasticsearch-logging-discovery"
+  replicas: 3
+  selector:
+    matchLabels:
+      component: elasticsearch
+      role: all
+  template:
+    metadata:
+      labels:
+        component: elasticsearch
+        role: all
+    spec:
+      # elasticsearch needs special kernel settings, no need 
+      # for this if you have control over your nodes' kernel.
+      initContainers:
+      - name: init-sysctl
+        image: busybox
+        command:
+        - sysctl
+        - -w
+        - vm.max_map_count=262144
+        securityContext:
+          privileged: true
+      containers:
+      - name: "elasticsearch-logging"
+        image: docker.elastic.co/elasticsearch/elasticsearch-oss:6.3.0
+        env:
+        - name: "cluster.name"
+          value: "elasticsearch-logging"
+        - name: "bootstrap.memory_lock"
+          value: "false"
+          # TODO is non-integer ok here?
+        - name: "processors"
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        - name: "node.name"
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: "discovery.zen.ping.unicast.hosts"
+          value: "elasticsearch-logging-discovery"
+        - name: "discovery.zen.minimum_master_nodes"
+          value: "2"
+        # tries to write to the root fs, clashes with read only root fs
+        # better initialize the mounts seperately
+        - name: "TAKE_FILE_OWNERSHIP"
+          value: "true"
+        - name: ES_JAVA_OPTS
+          # should be half of the request
+          value: "-Xms512m -Xmx512m"
+        resources:
+          requests:
+            cpu: 0.5
+            memory: 1Gi
+          limits:
+            cpu: 2
+            memory: 2Gi
+        ports:
+        - containerPort: 9200
+          name: http
+        - containerPort: 9300
+          name: transport
+        livenessProbe:
+          tcpSocket:
+            port: transport
+          initialDelaySeconds: 20
+          periodSeconds: 10
+        # readiness probe and discovery service can not be used together (split up master/data for this)
+        #readinessProbe:
+        #  httpGet:
+        #    path: /_cluster/health
+        #    port: http
+        #  initialDelaySeconds: 20
+        #  timeoutSeconds: 5
+        volumeMounts:
+        - name: data 
+          mountPath: /usr/share/elasticsearch/data
+        # TODO disable gc logs
+        volumeMounts:
+        - name: logs
+          mountPath: /usr/share/elasticsearch/logs
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      storageClassName: standard
+      accessModes: [ ReadWriteOnce ]
+      resources:
+        requests:
+          storage: 1Gi
+  - metadata:
+      name: logs
+    spec:
+      storageClassName: standard
+      accessModes: [ ReadWriteOnce ]
+      resources:
+        requests:
+          storage: 1Gi
