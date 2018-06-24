@@ -18,6 +18,16 @@ spec:
         component: elasticsearch
         role: all
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: component
+                operator: In
+                values:
+                - elasticsearch
+            topologyKey: "kubernetes.io/hostname"
       # elasticsearch needs special kernel settings, no need 
       # for this if you have control over your nodes' kernel.
       initContainers:
@@ -48,6 +58,7 @@ spec:
               fieldPath: metadata.name
         - name: "discovery.zen.ping.unicast.hosts"
           value: "elasticsearch-logging-discovery"
+          # has to be a quorum (replicas/2 + 1)
         - name: "discovery.zen.minimum_master_nodes"
           value: "2"
         # tries to write to the root fs, clashes with read only root fs
