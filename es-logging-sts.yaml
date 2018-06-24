@@ -18,6 +18,16 @@ spec:
         component: elasticsearch
         role: all
     spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: component
+                operator: In
+                values:
+                - elasticserach
+            topologyKey: "kubernetes.io/hostname"
       # elasticsearch needs special kernel settings, no need 
       # for this if you have control over your nodes' kernel.
       initContainers:
