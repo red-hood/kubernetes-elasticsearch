@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: elasticsearch-logging-exporter
+  labels:
+    app: elasticsearch-logging-exporter
+spec:
+  ports:
+  - port: 9108
+    name: http 
+  selector:
+    app: elasticsearch-logging-exporter

@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: elasticsearch-logging-exporter
+  namespace: monitoring
+  labels: 
+    app: elasticsearch-logging-exporter
+    # for prometheus-operator
+    k8s-app: elasticsearch-logging-exporter
+spec:
+  namespaceSelector:
+    matchNames:
+    - default
+  selector:
+    matchLabels:
+      app: elasticsearch-logging-exporter
+  endpoints:
+  - port: http
+    scheme: http
+    path: /metrics
+    interval: 30s
+    honorLabels: true
